@@ -5,20 +5,30 @@ import Login from "../screens/Login";
 import Register from "../screens/Register";
 import TabNavigator from "./TabNavigator";
 import { StyleSheet } from "react-native";
-
+import SelectCity from "../screens/SelectCity";
+import { useSelector } from "react-redux";
 const Stack = createNativeStackNavigator();
 
-function AppNavigator() {
+
+function AppStack(){
   return (
-    <NavigationContainer >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
 
         <Stack.Screen name="Login" component={Login} />
+        <Stack.Screen name="SelectCity" component={SelectCity}/>
         <Stack.Screen name="Register" component={Register} />
 
         <Stack.Screen name="MainApp" component={TabNavigator} />
 
       </Stack.Navigator>
+  )
+}
+
+function AppNavigator() {
+  const isAuthenticated = useSelector((state)=>state.auth.isAuthenticated)
+  return (
+    <NavigationContainer>
+    {isAuthenticated ? <TabNavigator/> : <AppStack/>}
     </NavigationContainer>
   );
 }
