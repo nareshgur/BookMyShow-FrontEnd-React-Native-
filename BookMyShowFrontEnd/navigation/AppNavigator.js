@@ -7,6 +7,8 @@ import TabNavigator from "./TabNavigator";
 import { StyleSheet } from "react-native";
 import SelectCity from "../screens/SelectCity";
 import { useSelector } from "react-redux";
+import MovieDetailsScreen from "../screens/MovieDetails";
+
 const Stack = createNativeStackNavigator();
 
 function AppStack() {
@@ -15,7 +17,7 @@ function AppStack() {
       <Stack.Screen name="Login" component={Login} />
       <Stack.Screen name="SelectCity" component={SelectCity} />
       <Stack.Screen name="Register" component={Register} />
-
+      <Stack.Screen name="MovieDetails" component={MovieDetailsScreen} />
       <Stack.Screen name="MainApp" component={TabNavigator} />
     </Stack.Navigator>
   );

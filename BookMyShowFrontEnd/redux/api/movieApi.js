@@ -1,28 +1,33 @@
-// src/services/moviesApi.js
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { dynamicBaseQuery } from "../../utils/dynamicBaseQuery";
 
 export const moviesApi = createApi({
   reducerPath: "moviesApi",
-  baseQuery: fetchBaseQuery({
-    baseUrl: "http://10.90.13.121:3000/api/",
-  }),
+
+  // ✔ USE THE DYNAMIC FUNCTION HERE
+  baseQuery: dynamicBaseQuery,
+
   endpoints: (builder) => ({
-    getShowsByCity: builder.query({
-      query: (city) => `Shows/Show/City/${city}`,
+    login: builder.mutation({
+      query: (body) => ({
+        url: "Auth/login",
+        method: "POST",
+        body,
+      }),
     }),
 
     getMoviesByCity: builder.query({
-      query: (city) => `/movies/Movies/City/${city}`,
+      query: (city) => `movies/Movies/City/${city}`,
     }),
 
-    searchMovies: builder.query({
-      query: (search) => `movies/Movie/search?q=${search}`,
+    getShowsByCity: builder.query({
+      query: (city) => `Shows/Show/City/${city}`,
     }),
   }),
 });
 
 export const {
+  useLoginMutation,
   useGetMoviesByCityQuery,
-  useSearchMoviesQuery,
   useGetShowsByCityQuery,
 } = moviesApi;

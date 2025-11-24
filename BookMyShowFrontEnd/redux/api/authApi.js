@@ -1,13 +1,13 @@
 // src/features/auth/authApi.js
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { dynamicBaseQuery } from "../../utils/dynamicBaseQuery";
 
 // base url of your backend
-const BASE_URL = "http://10.90.13.121:3000/api";
 
 export const authApi = createApi({
   reducerPath: "authApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: BASE_URL,
+    baseUrl: "http://10.90.13.242:3000/api/",
     // attach token from state to each request (prepareHeaders receives getState)
     prepareHeaders: (headers, { getState }) => {
       const token = getState().auth?.token;
