@@ -110,7 +110,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
           <Image
             source={{ uri: movie.moviePoster }}
             style={styles.poster}
-            resizeMode="cover"
+            resizeMode="stretch"
           />
 
           {/* Play overlay */}
@@ -201,7 +201,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
       <View style={styles.bottomContainer}>
         <TouchableOpacity
           style={styles.bookButton}
-          onPress={() => console.log("Booking tickets...")}
+          onPress={() => {
+            // navigate to Shows screen and pass movieId
+            navigation.navigate('Shows', { movieId: movie.movieId, movie });
+          }}
         >
           <Text style={styles.bookText}>Book tickets</Text>
         </TouchableOpacity>

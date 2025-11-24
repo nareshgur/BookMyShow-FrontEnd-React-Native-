@@ -18,7 +18,8 @@ import cityReducer from "./slices/citySlice";
 
 import { authApi } from "../redux/api/authApi";
 import { moviesApi } from "./api/movieApi";
-
+import showApi from "./api/showApi";
+import showReducer from "./slices/showSlice";
 // Persist only auth & city
 const persistConfig = {
   key: "root",
@@ -31,6 +32,8 @@ const rootReducer = combineReducers({
   city: cityReducer,
   [authApi.reducerPath]: authApi.reducer,
   [moviesApi.reducerPath]: moviesApi.reducer,
+  [showApi.reducerPath]: showApi.reducer,
+  show: showReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -44,7 +47,8 @@ export const store = configureStore({
       },
     })
       .concat(authApi.middleware)
-      .concat(moviesApi.middleware),
+      .concat(moviesApi.middleware)
+      .concat(showApi.middleware),
   devTools: true,
 });
 

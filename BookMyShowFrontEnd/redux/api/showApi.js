@@ -10,28 +10,34 @@ export const showApi = createApi({
     }),
 
     getShowsByCity: builder.query({
-      query: (city) => `Show/City/${city}`,
+      query: (city) => `Shows/Show/City/${city}`,
     }),
 
     getShowsByMovie: builder.query({
-      query: (movieId) => `Show/Movie/${movieId}`,
+      query: (movieId) => `Shows/Show/Movie/${movieId}`,
     }),
 
     getShowsByTheatre: builder.query({
-      query: (theatreId) => `Show/Theatre/${theatreId}`,
+      query: (theatreId) => `Shows/Show/Theatre/${theatreId}`,
     }),
 
     getShowsByScreen: builder.query({
-      query: (screenId) => `Show/Screen/${screenId}`,
+      query: (screenId) => `Shows/Show/Screen/${screenId}`,
     }),
 
     updateShow: builder.mutation({
-      query: ({ id, body }) => ({ url: `Show/${id}`, method: "PUT", body }),
+      query: ({ id, body }) => ({ url: `Shows/Show/${id}`, method: "PUT", body }),
     }),
 
     deleteShow: builder.mutation({
-      query: (id) => ({ url: `Show/${id}`, method: "DELETE" }),
+      query: (id) => ({ url: `Shows/Show/${id}`, method: "DELETE" }),
     }),
+     getShowsByMovieCityDate: builder.query({
+      query: ({ movieId, city, date }) =>
+        `Shows/Show/Filter?movieId=${movieId}&city=${city}&date=${date}`,
+    }),
+
+
   }),
 });
 
