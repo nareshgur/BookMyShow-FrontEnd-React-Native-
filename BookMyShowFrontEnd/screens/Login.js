@@ -3,29 +3,32 @@ import { Button, Pressable, StyleSheet, Text, TextInput, TextInputBase, View } f
 import axios from 'axios'
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useNavigation } from '@react-navigation/native'
+import { useLoginMutation } from '../redux/api/authApi'
 function Login() {
 
     const navigate = useNavigation()
-    const [mail,setMail] = useState('')
-    const [password,setPassword] = useState('')
+    const [email,setMail] = useState('')
+    const [Password,setPassword] = useState('')
+    const [login,{isLoading}] = useLoginMutation()
    async function LoginOpe() {
   console.log("LoginOpe called");
 
   try {
-    const res = await axios.post("http://192.168.1.8:3000/api/Auth/login", {
-      email: mail,
-      Password: password
-    });
+    // const res = await axios.post("http://192.168.1.8:3000/api/Auth/login", {
+    //   email: email,
+    //   Password: password
+    // });
 
-    // console.log("The result ", res.data);
+    const res = await login({email,Password}).unwrap()
+    console.log("The result of backend login ", res.data);
     // const {data,token} = res.data.data
 
     // console.log("The data is",res.data.data," The token is ",res.data.data.token);
-    AsyncStorage.setItem("token",res.data.data.token)
-    AsyncStorage.setItem("user",JSON.stringify(res.data.data.user))
+    AsyncStorage.setItem("token",res.data.token)
+    AsyncStorage.setItem("user",JSON.stringify(res.data.user))
 
 
-    navigate.navigate("MainApp")
+    navigate.navigate("SelectCity")
     // console.log("The user details from Async Storage",await AsyncStorage.getItem("user"));
     // console.log("The token details from Async Storage",await AsyncStorage.getItem("token"));
     
@@ -43,11 +46,11 @@ function Login() {
              <View style={styles.inputContainer}>
                <View>
                  <Text>Email : </Text>
-                <TextInput style={styles.input} value={mail} onChangeText={(text)=>setMail(text)} placeholder='Enter Email'/>
+                <TextInput style={styles.input} value={email} onChangeText={(text)=>setMail(text)} placeholder='Enter Email'/>
                </View>
               <View>
                   <Text>Password : </Text>
-                <TextInput style={styles.input} value={password} onChangeText={(text)=>setPassword(text)} placeholder='Enter Password'/>
+                <TextInput style={styles.input} value={Password} onChangeText={(text)=>setPassword(text)} placeholder='Enter Password'/>
               </View>
               <Pressable style={styles.button} onPress={()=>{
                 console.log("Button is clicked ");
