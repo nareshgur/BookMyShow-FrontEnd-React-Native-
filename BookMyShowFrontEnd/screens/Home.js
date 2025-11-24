@@ -11,8 +11,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSelector } from "react-redux";
-import { useGetMoviesByCityQuery } from "../app/api/movieApi";
-
+import { useGetMoviesByCityQuery } from "../redux/api/movieApi";
+useGetMoviesByCityQuery;
 export default function HomeScreen({ navigation }) {
   // Get selected city from Redux store
   const selectedCity = useSelector((state) => state.city.selectedCity);
@@ -27,6 +27,8 @@ export default function HomeScreen({ navigation }) {
     skip: !selectedCity, // avoid API call if city not selected
   });
 
+  console.log("The movies we received from the backend ", movies);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -34,9 +36,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>It All Starts Here!</Text>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate("CitySelect")}
-          >
+          <TouchableOpacity onPress={() => navigation.navigate("SelectCity")}>
             <Text style={styles.cityText}>
               {selectedCity || "Select City"} ▾
             </Text>
@@ -106,16 +106,17 @@ export default function HomeScreen({ navigation }) {
             <TouchableOpacity
               key={movie.movieId}
               style={styles.movieCard}
-              onPress={() =>
-                navigation.navigate("MovieDetails", { movie })
-              }
+              onPress={() => navigation.navigate("MovieDetails", { movie })}
             >
               <Image
-                source={{ uri: movie.poster }}
+                source={{
+                  uri:
+                    movie.moviePoster || "https://via.placeholder.com/120x180",
+                }}
                 style={styles.movieImage}
               />
               <Text style={styles.movieTitle} numberOfLines={1}>
-                {movie.title}
+                {movie.movieName}
               </Text>
             </TouchableOpacity>
           ))}
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   seeAll: {
-    color: "red", 
+    color: "red",
     fontSize: 14,
   },
   recommendList: {

@@ -10,14 +10,17 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { setCity } from "../redux/slices/citySlice";
+import { useDispatch } from "react-redux";
 
 export default function SelectCity({ navigation }) {
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const dispatch = useDispatch();
   async function fetchCities() {
     try {
-      const res = await axios.get("http://192.168.1.8:3000/api/City/cities");
+      const res = await axios.get("http://10.90.13.121:3000/api/City/cities");
       setCities(res.data.data);
     } catch (err) {
       console.log("Error fetching cities: ", err);
@@ -27,7 +30,10 @@ export default function SelectCity({ navigation }) {
   }
 
   async function selectCity(city) {
+    console.log("The city we received is ", city);
+
     await AsyncStorage.setItem("selectedCity", city.name);
+    dispatch(setCity(city.name));
     alert("City updated successfully!");
     navigation.replace("MainApp"); // redirect to Home
   }

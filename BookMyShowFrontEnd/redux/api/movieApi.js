@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const moviesApi = createApi({
   reducerPath: "moviesApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://192.168.1.8:3000/api/",
+    baseUrl: "http://10.90.13.121:3000/api/",
   }),
   endpoints: (builder) => ({
     getShowsByCity: builder.query({
@@ -21,4 +21,8 @@ export const moviesApi = createApi({
   }),
 });
 
-export const { useGetMoviesByCityQuery, useSearchMoviesQuery , useGetShowsByCityQuery} = moviesApi;
+export const {
+  useGetMoviesByCityQuery,
+  useSearchMoviesQuery,
+  useGetShowsByCityQuery,
+} = moviesApi;
