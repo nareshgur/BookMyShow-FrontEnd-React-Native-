@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Button,
   Pressable,
@@ -12,11 +12,29 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { useLoginMutation } from "../redux/api/authApi";
+import { useDispatch } from "react-redux";
+import { setCredentials } from "../redux/slices/authSlice";
 function Login() {
   const navigate = useNavigation();
+  const dispatch = useDispatch();
   const [email, setMail] = useState("");
   const [Password, setPassword] = useState("");
   const [login, { isLoading }] = useLoginMutation();
+
+
+  useEffect(() => {
+    console.log("Login screen mounted");
+    async function userDetails(){
+      const token = await AsyncStorage.getItem("token");
+      if(token){
+        console.log("User already logged in, navigating to SelectCity");
+        navigate.replace("SelectCity");
+      }
+    } 
+    userDetails();
+  }, []);
+
+
   async function LoginOpe() {
     console.log("LoginOpe called");
 
@@ -29,6 +47,7 @@ function Login() {
       const res = await login({ email, Password }).unwrap();
       console.log("The result of backend login ", res.data);
       // const {data,token} = res.data.data
+      dispatch(setCredentials(res.data));
 
       // console.log("The data is",res.data.data," The token is ",res.data.data.token);
       AsyncStorage.setItem("token", res.data.token);

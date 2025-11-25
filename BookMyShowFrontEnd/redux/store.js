@@ -22,6 +22,9 @@ import showApi from "./api/showApi";
 import showSeatSlice from "./slices/showSeatSlice";
 import showReducer from "./slices/showSlice";
 import showSeatApi from "./api/showSeatApi";
+import bookApi from "./api/bookApi";
+import bookReducer  from "./slices/bookSlice";
+import paymentApi from "./api/paymentApi";
 // Persist only auth & city
 const persistConfig = {
   key: "root",
@@ -36,6 +39,9 @@ const rootReducer = combineReducers({
   [moviesApi.reducerPath]: moviesApi.reducer,
   [showApi.reducerPath]: showApi.reducer,
   [showSeatApi.reducerPath]: showSeatApi.reducer,
+  [bookApi.reducerPath]: bookApi.reducer,
+  [paymentApi.reducerPath]: paymentApi.reducer,
+  book: bookReducer,
   show: showReducer,
   showSeat: showSeatSlice,
 });
@@ -53,7 +59,9 @@ export const store = configureStore({
       .concat(authApi.middleware)
       .concat(moviesApi.middleware)
       .concat(showApi.middleware)
-      .concat(showSeatApi.middleware),
+      .concat(showSeatApi.middleware)
+      .concat(bookApi.middleware)
+      .concat(paymentApi.middleware),
   devTools: true,
 });
 

@@ -34,6 +34,7 @@ import {
 } from "../redux/api/bookApi";
 
 import { setCurrentBooking } from "../redux/slices/bookSlice";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function BookingScreen({ route, navigation }) {
   const { show, movie, startTime } = route.params;
@@ -62,6 +63,29 @@ function BookingScreen({ route, navigation }) {
 
   const seatPrice = 150;
 
+  const [user, setUser] = useState(null);
+
+
+ useEffect(() => {
+  async function loadUser(){
+    try{
+      const userData = await AsyncStorage.getItem("user");
+
+      if(userData){
+        const user = JSON.parse(userData);
+        console.log("The user data from AsyncStorage is ", user);
+        setUser(user);
+      }
+    }catch(err){
+      console.log("Error loading user from AsyncStorage", err);
+    }
+  }
+  loadUser();
+}, []);
+
+
+console.log("The user details are ", user);
+
   /** Load seats into Redux **/
   useEffect(() => {
     if (seatsData) {
@@ -87,7 +111,7 @@ function BookingScreen({ route, navigation }) {
       return Alert.alert("No seats selected", "Please select at least one.");
     }
 
-    if (!userId) {
+    if (!user) {
       return Alert.alert("Not Logged In", "Please login to continue.");
     }
 
@@ -126,23 +150,19 @@ function BookingScreen({ route, navigation }) {
         throw new Error("Razorpay order creation failed.");
       }
 
-      const { order, paymentId } = orderRes;
+      const { order, paymentId ,key } = orderRes;
 
       // 4️⃣ OPEN RAZORPAY CHECKOUT
-      const options = {
-        description: "Movie Ticket Booking",
-        currency: "INR",
-        key: process.env.RAZORPAY_KEY_ID,
-        amount: totalPrice * 100,
-        order_id: order.id,
-        name: movie.movieName,
-        prefill: {
-          name: auth.user?.name ?? "User",
-          email: auth.user?.email ?? "test@example.com",
-          contact: auth.user?.phone ?? "9999999999",
-        },
-        theme: { color: "#ff2e63" },
-      };
+      const checkoutUrl = `https://api.razorpay.com/v1/checkout/embedded?` +
+  `key_id=${key}&` +
+  `amount=${totalPrice * 100}&` +
+  `order_id=${order.id}&` +
+  `prefill[name]=${user.name}&` +
+  `prefill[email]=${user.email}&` +
+  `prefill[contact]=${user.phone}`;
+
+// 5️⃣ Navigate to WebView Checkout
+navigation.navigate("RazorpayCheckoutScreen", { checkoutUrl });
 
       RazorpayCheckout.open(options)
         .then(async (paymentData) => {
@@ -173,6 +193,7 @@ function BookingScreen({ route, navigation }) {
         });
     } catch (err) {
       Alert.alert("Error", err.message);
+      console.log("Booking error:", err);
     } finally {
       setIsPaymentProcessing(false);
     }
