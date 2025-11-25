@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useGetShowsByMovieQuery } from "../redux/api/showApi";
 
-const BASE_API = "http://10.40.1.236:3000/api"; // same base as dynamicBaseQuery
+const BASE_API = "http://10.90.13.242:3000/api"; // same base as dynamicBaseQuery
 
 export default function ShowsScreen({ route, navigation }) {
   const { movieId, movie } = route.params || {};
@@ -123,9 +123,10 @@ export default function ShowsScreen({ route, navigation }) {
                   style={styles.timePill}
                   onPress={() => {
                     // navigate to booking screen or pass show to booking
-                    navigation.navigate("Booking", { show: s, movie });
+                    navigation.navigate("Booking", { show: s, movie , startTime: s.startTime});
                   }}
                 >
+                  {console.log("The show time being rendered is ", s.startTime)}
                   <Text style={styles.timeText}>
                     {s.startTime || s.time || "—"}
                   </Text>
