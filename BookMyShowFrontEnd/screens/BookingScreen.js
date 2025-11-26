@@ -37,7 +37,7 @@ import { setCurrentBooking } from "../redux/slices/bookSlice";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function BookingScreen({ route, navigation }) {
-  const { show, movie, startTime } = route.params;
+  const { show, movie, startTime } = route.params || {};
 
   const dispatch = useDispatch();
 
@@ -48,8 +48,10 @@ function BookingScreen({ route, navigation }) {
   const auth = useSelector((state) => state.auth || {});
   const userId = auth?.user?._id;
 
+  // ✅ ALWAYS call hooks in the same order (not conditionally)
   const { data: seatsData, isLoading } = useGetShowSeatsByShowQuery(
-    show?._id || show?.id
+    show?._id || show?.id || "unknown",
+    { skip: !show?._id && !show?.id } // Skip execution if show ID is missing
   );
 
   const [blockSeats] = useBlockSeatsMutation();
@@ -65,26 +67,23 @@ function BookingScreen({ route, navigation }) {
 
   const [user, setUser] = useState(null);
 
-
- useEffect(() => {
-  async function loadUser(){
-    try{
-      const userData = await AsyncStorage.getItem("user");
-
-      if(userData){
-        const user = JSON.parse(userData);
-        console.log("The user data from AsyncStorage is ", user);
-        setUser(user);
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const userData = await AsyncStorage.getItem("user");
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          console.log("User from AsyncStorage:", parsedUser);
+          setUser(parsedUser);
+        }
+      } catch (err) {
+        console.log("Error loading user:", err);
       }
-    }catch(err){
-      console.log("Error loading user from AsyncStorage", err);
     }
-  }
-  loadUser();
-}, []);
+    loadUser();
+  }, []);
 
-
-console.log("The user details are ", user);
+  console.log("User details:", user);
 
   /** Load seats into Redux **/
   useEffect(() => {
@@ -150,46 +149,63 @@ console.log("The user details are ", user);
         throw new Error("Razorpay order creation failed.");
       }
 
-      const { order, paymentId ,key } = orderRes;
+      const { order, paymentId, key } = orderRes;
+
+      console.log("The value of the orderRes",orderRes);
+      
 
       // 4️⃣ OPEN RAZORPAY CHECKOUT
-      const checkoutUrl = `https://api.razorpay.com/v1/checkout/embedded?` +
-  `key_id=${key}&` +
-  `amount=${totalPrice * 100}&` +
-  `order_id=${order.id}&` +
-  `prefill[name]=${user.name}&` +
-  `prefill[email]=${user.email}&` +
-  `prefill[contact]=${user.phone}`;
+      const options = {
+        description: `Booking for ${selectedSeats.length} seat(s)`,
+        image: "https://i.imgur.com/3g7nmJC.png",
+        currency: "INR",
+        key: key || "rzp_test_1DP5mmOlF5G5ag",
+        amount: totalPrice * 100,
+        order_id: order.id,
+        name: movie?.movieName || "BookMyShow",
+        prefill: {
+          name: user.name || "Customer",
+          email: user.email || "customer@example.com",
+          contact: user.phone || "9999999999",
+        },
+        theme: { color: "#ff2e63" },
+      };
 
-// 5️⃣ Navigate to WebView Checkout
-navigation.navigate("RazorpayCheckoutScreen", { checkoutUrl });
-
+      // 5️⃣ OPEN RAZORPAY CHECKOUT AND HANDLE PAYMENT
       RazorpayCheckout.open(options)
         .then(async (paymentData) => {
-          // 5️⃣ VERIFY PAYMENT
-          await verifyPayment({
-            bookingId,
-            paymentDbId: paymentId,
-            razorpayOrderId: paymentData.razorpay_order_id,
-            razorpayPaymentId: paymentData.razorpay_payment_id,
-            razorpaySignature: paymentData.razorpay_signature,
-          }).unwrap();
+          try {
+            // VERIFY PAYMENT
+            await verifyPayment({
+              bookingId,
+              paymentDbId: paymentId,
+              razorpayOrderId: paymentData.razorpay_order_id,
+              razorpayPaymentId: paymentData.razorpay_payment_id,
+              razorpaySignature: paymentData.razorpay_signature,
+            }).unwrap();
 
-          // 6️⃣ CONFIRM BOOKING
-          const confirmRes = await confirmBooking({
-            bookingId,
-            paymentId,
-          }).unwrap();
+            // CONFIRM BOOKING
+            const confirmRes = await confirmBooking({
+              bookingId,
+              paymentId,
+            }).unwrap();
 
-          dispatch(clearSelectedSeats());
+            dispatch(clearSelectedSeats());
 
-          Alert.alert("Success", "Your tickets are booked!", [
-            { text: "OK", onPress: () => navigation.navigate("Orders") },
-          ]);
+            Alert.alert("Success", "Your tickets are booked!", [
+              { text: "OK", onPress: () => navigation.navigate("Orders") },
+            ]);
+          } catch (verifyErr) {
+            console.log("Verification error:", verifyErr);
+            Alert.alert("Verification Error", verifyErr?.message || "Payment verification failed");
+          } finally {
+            setIsPaymentProcessing(false);
+          }
         })
         .catch((error) => {
-          console.log("Payment failed", error);
-          Alert.alert("Payment Failed", "Please try again");
+          console.log("Payment cancelled or failed:", error);
+          setIsPaymentProcessing(false);
+          Alert.alert("Payment Failed", error?.message || "Please try again");
         });
     } catch (err) {
       Alert.alert("Error", err.message);

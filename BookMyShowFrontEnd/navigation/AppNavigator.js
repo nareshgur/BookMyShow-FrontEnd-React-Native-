@@ -1,42 +1,65 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
 import Login from "../screens/Login";
-import Register from "../screens/Register";
-import TabNavigator from "./TabNavigator";
-import { StyleSheet } from "react-native";
 import SelectCity from "../screens/SelectCity";
-import { useSelector } from "react-redux";
 import MovieDetailsScreen from "../screens/MovieDetails";
 import ShowsScreen from "../screens/ShowsScreen";
 import BookingScreen from "../screens/BookingScreen";
 import RazorpayCheckoutScreen from "../screens/RazorpayCheckout";
+import TabNavigator from "./TabNavigator";
 
-const Stack = createNativeStackNavigator();
+import { useDispatch, useSelector } from "react-redux";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { setCredentials } from "../redux/slices/authSlice";
+import { StyleSheet } from "react-native";
 
-function AppStack() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="MainApp" component={TabNavigator} />
-      <Stack.Screen name="SelectCity" component={SelectCity} />
-      <Stack.Screen name="MovieDetails" component={MovieDetailsScreen} />
-      <Stack.Screen name="Shows" component={ShowsScreen} />
-      <Stack.Screen name="Booking" component={BookingScreen} />
-      <Stack.Screen name="RazorpayCheckoutScreen" component={RazorpayCheckoutScreen} />
-    </Stack.Navigator>
-  );
-}
+import AppStack from "./AppStack";
+import AuthStack from "./AuthStack";
 
-function AuthStack(){
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={Login} />
-    </Stack.Navigator>
-  );
-}
 
-function AppNavigator() {
-  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+
+
+export default function AppNavigator() {
+  const dispatch = useDispatch();
+  const [loading, setLoading] = useState(true);
+  
+  // ✅ CALL ALL HOOKS FIRST (before any conditional returns)
+  const isAuthenticated = useSelector((state) => state.auth?.isAuthenticated || false);
+
+  useEffect(() => {
+    async function loadStoredToken() {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const user = await AsyncStorage.getItem("user");
+        const city = await AsyncStorage.getItem("selectedCity");
+
+        console.log("Loaded token from AsyncStorage in App Navigator:", token);
+        console.log("Loaded user from AsyncStorage in App Navigator:", user);
+        console.log("Loaded city from AsyncStorage in App Navigator:", city);
+
+        if (token && user) {
+          dispatch(
+            setCredentials({
+              token,
+              user: JSON.parse(user),
+            })
+          );
+        }
+      } catch (err) {
+        console.log("Error loading token:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadStoredToken();
+  }, [dispatch]);
+
+  // ✅ NOW we can conditionally return
+  if (loading) return null;
+
   return (
     <NavigationContainer>
       {isAuthenticated ? <AppStack /> : <AuthStack />}
@@ -44,7 +67,7 @@ function AppNavigator() {
   );
 }
 
-export default AppNavigator;
+
 
 const styles = StyleSheet.create({
   container: {

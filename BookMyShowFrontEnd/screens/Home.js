@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,20 +12,44 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSelector } from "react-redux";
 import { useGetMoviesByCityQuery } from "../redux/api/movieApi";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 useGetMoviesByCityQuery;
 export default function HomeScreen({ navigation }) {
   // Get selected city from Redux store
-  const selectedCity = useSelector((state) => state.city.selectedCity);
+  // const selectedCity = useSelector((state) => state.city.selectedCity);
+
+  const [selectedCity, setSelectedCity] = useState(null);
+
+  useEffect(() => {
+    async function loadCity() {
+      const city = await AsyncStorage.getItem("selectedCity");
+      console.log("City loaded:", city);
+      setSelectedCity(city);
+    }
+    loadCity();
+  }, []);
+
+  useEffect(() => {
+    console.log("selectedCity UPDATED:", selectedCity);
+  }, [selectedCity]);
+
+  const { data: movies, isLoading,isFetching,error } = useGetMoviesByCityQuery(selectedCity, {
+    skip: !selectedCity,
+  });
+
+  
+  // console.log("Fetching TOken received from AsyncStorage in HomeScreen useEffect",token);
+  // console.log("The selected city from AsyncStorage in outside useEffect HomeScreen", selectedCity);
 
   // Fetch movies from backend
-  const {
-    data: movies,
-    isLoading,
-    isFetching,
-    error,
-  } = useGetMoviesByCityQuery(selectedCity, {
-    skip: !selectedCity, // avoid API call if city not selected
-  });
+  // const {
+  //   data: movies,
+  //   isLoading,
+  //   isFetching,
+  //   error,
+  // } = useGetMoviesByCityQuery(selectedCity, {
+  //   skip: !selectedCity, // avoid API call if city not selected
+  // });
 
   console.log("The movies we received from the backend ", movies);
 
@@ -43,7 +67,7 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Categories */}
+        {/* Categories */}``
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -81,7 +105,7 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {/* === Loading State === */}
-        {(isLoading || isFetching) && (
+        {(isLoading ) && (
           <ActivityIndicator
             size="large"
             color="red"

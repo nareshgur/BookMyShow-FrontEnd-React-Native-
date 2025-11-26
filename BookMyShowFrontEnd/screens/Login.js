@@ -14,6 +14,8 @@ import { useNavigation } from "@react-navigation/native";
 import { useLoginMutation } from "../redux/api/authApi";
 import { useDispatch } from "react-redux";
 import { setCredentials } from "../redux/slices/authSlice";
+
+
 function Login() {
   const navigate = useNavigation();
   const dispatch = useDispatch();
@@ -26,8 +28,16 @@ function Login() {
     console.log("Login screen mounted");
     async function userDetails(){
       const token = await AsyncStorage.getItem("token");
-      if(token){
+      const city = await AsyncStorage.getItem("selectedCity");
+
+      console.log("The token from AsyncStorage is ", token);
+      console.log("The city from AsyncStorage is ", city);
+      if(token && city){
         console.log("User already logged in, navigating to SelectCity");
+        // navigate.replace("SelectCity");
+        navigate.replace("MainApp");
+      }else if(token && !city){
+        console.log("User logged in but city not selected, navigating to SelectCity");
         navigate.replace("SelectCity");
       }
     } 
@@ -53,9 +63,9 @@ function Login() {
       AsyncStorage.setItem("token", res.data.token);
       AsyncStorage.setItem("user", JSON.stringify(res.data.user));
 
+
+
       navigate.navigate("SelectCity");
-      // console.log("The user details from Async Storage",await AsyncStorage.getItem("user"));
-      // console.log("The token details from Async Storage",await AsyncStorage.getItem("token"));
     } catch (err) {
       console.log("Login error: ", err);
       console.log("Something went wrong ", err);
