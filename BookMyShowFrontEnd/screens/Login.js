@@ -22,21 +22,24 @@ function Login() {
   const [email, setMail] = useState("");
   const [Password, setPassword] = useState("");
   const [login, { isLoading }] = useLoginMutation();
-
+    
+  const navigation = useNavigation();
 
   useEffect(() => {
     console.log("Login screen mounted");
     async function userDetails(){
       const token = await AsyncStorage.getItem("token");
-      const city = await AsyncStorage.getItem("selectedCity");
 
+        await AsyncStorage.multiRemove(["selectedCity", "selectedCityId"]);
+      const city = await AsyncStorage.getItem("selectedCity");
+      const cityId = await AsyncStorage.getItem("selectedCityId");
       console.log("The token from AsyncStorage is ", token);
       console.log("The city from AsyncStorage is ", city);
       if(token && city){
-        console.log("User already logged in, navigating to SelectCity");
+        console.log("User already logged in, navigating to MainApp");
         // navigate.replace("SelectCity");
         navigate.replace("MainApp");
-      }else if(token && !city){
+      }else if(token && !cityId){
         console.log("User logged in but city not selected, navigating to SelectCity");
         navigate.replace("SelectCity");
       }
@@ -104,6 +107,11 @@ function Login() {
         >
           <Text>Login</Text>
         </Pressable>
+        <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+                <Text style={styles.registerText}>
+                  Already have an account? Login
+                </Text>
+              </TouchableOpacity>
       </View>
     </View>
   );
@@ -138,5 +146,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
+  },
+   registerText: {
+    marginTop: 15,
+    textAlign: "center",
+    color: "#444",
   },
 });

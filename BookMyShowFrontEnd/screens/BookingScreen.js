@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from "react";
 import {
-  StyleSheet,
+  View,
   Text,
   TouchableOpacity,
-  View,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
   Alert,
+  StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from "react-redux";
-import RazorpayCheckout from "react-native-razorpay";
 
 import {
   useGetShowSeatsByShowQuery,
@@ -24,34 +24,28 @@ import {
 } from "../redux/slices/showSeatSlice";
 
 import {
-  useCreateRazorpayOrderMutation,
-  useVerifyPaymentMutation,
-} from "../redux/api/paymentApi";
-
-import {
   useCreatePendingBookingMutation,
   useConfirmBookingMutation,
 } from "../redux/api/bookApi";
 
+import {
+  useCreateRazorpayOrderMutation,
+  useVerifyPaymentMutation,
+} from "../redux/api/paymentApi";
+
 import { setCurrentBooking } from "../redux/slices/bookSlice";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-function BookingScreen({ route, navigation }) {
-  const { show, movie, startTime } = route.params || {};
-
+export default function BookingScreen({ route, navigation }) {
+  const { show, movie } = route.params;
   const dispatch = useDispatch();
 
-  const selectedSeats = useSelector(
-    (state) => state.showSeat?.selectedSeats || []
-  );
+  const selectedSeats = useSelector((state) => state.showSeat.selectedSeats);
+  const user = useSelector((state) => state.auth.user);
+  const userId = user?._id;
 
-  const auth = useSelector((state) => state.auth || {});
-  const userId = auth?.user?._id;
-
-  // ✅ ALWAYS call hooks in the same order (not conditionally)
   const { data: seatsData, isLoading } = useGetShowSeatsByShowQuery(
-    show?._id || show?.id || "unknown",
-    { skip: !show?._id && !show?.id } // Skip execution if show ID is missing
+    show?._id,
+    { skip: !show?._id }
   );
 
   const [blockSeats] = useBlockSeatsMutation();
@@ -60,220 +54,118 @@ function BookingScreen({ route, navigation }) {
   const [createRazorpayOrder] = useCreateRazorpayOrderMutation();
   const [verifyPayment] = useVerifyPaymentMutation();
 
-  const [totalPrice, setTotalPrice] = useState(0);
-  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
-
   const seatPrice = 150;
-
-  const [user, setUser] = useState(null);
+  const totalPrice = selectedSeats.length * seatPrice;
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const userData = await AsyncStorage.getItem("user");
-        if (userData) {
-          const parsedUser = JSON.parse(userData);
-          console.log("User from AsyncStorage:", parsedUser);
-          setUser(parsedUser);
-        }
-      } catch (err) {
-        console.log("Error loading user:", err);
-      }
-    }
-    loadUser();
-  }, []);
-
-  console.log("User details:", user);
-
-  /** Load seats into Redux **/
-  useEffect(() => {
-    if (seatsData) {
-      dispatch(setSeats(seatsData));
+    if (seatsData){
+       dispatch(setSeats(seatsData));
+      //  dispatch(clearSelectedSeats());
     }
   }, [seatsData]);
 
-  /** Update total price based on selected seats **/
-  useEffect(() => {
-    setTotalPrice(selectedSeats.length * seatPrice);
-  }, [selectedSeats]);
-
-  /** USER SELECTS A SEAT (NO API CALL HERE) */
   const handleSeatPress = (seat) => {
     if (["BOOKED", "BLOCKED", "SOLD"].includes(seat.status)) return;
-
     dispatch(toggleSelectedSeat(seat._id));
   };
-
-  /** MAIN BOOKING FLOW */
-  const handleBookSeats = async () => {
-    if (selectedSeats.length === 0) {
-      return Alert.alert("No seats selected", "Please select at least one.");
+  useEffect(() => {
+    return() => {
+      dispatch(clearSelectedSeats());
     }
+  }, []);
 
-    if (!user) {
+  const handleBookSeats = async () => {
+    if (!userId) {
       return Alert.alert("Not Logged In", "Please login to continue.");
     }
-
-    setIsPaymentProcessing(true);
+    if (selectedSeats.length === 0) {
+      return Alert.alert("Select Seats", "Choose at least one seat.");
+    }
 
     try {
-      // 1️⃣ BLOCK SEATS
-      console.log("Blocking seats:", selectedSeats);
-
-      const blockResponse = await blockSeats({
+      // 1️⃣ Block seats
+      await blockSeats({
         showSeatIds: selectedSeats,
-        showId: show?._id,
+        showId: show._id,
       }).unwrap();
 
-      if (blockResponse?.status === 409) {
-        throw new Error("Some seats are no longer available.");
-      }
-
-      // 2️⃣ CREATE PENDING BOOKING
+      // 2️⃣ Create pending booking
       const bookingRes = await createPendingBooking({
         userId,
-        showId: show?._id,
+        showId: show._id,
         showSeatIds: selectedSeats,
       }).unwrap();
 
-      const bookingId = bookingRes?.data?._id;
-
-      if (!bookingId) throw new Error("Booking ID missing.");
-
+      const bookingId = bookingRes.data._id;
       dispatch(setCurrentBooking(bookingRes.data));
 
-      // 3️⃣ CREATE RAZORPAY ORDER
+      // 3️⃣ Create Razorpay order
+      console.log("Before calling the createRazorPay")
       const orderRes = await createRazorpayOrder({ bookingId }).unwrap();
 
-      if (!orderRes?.order?.id) {
-        throw new Error("Razorpay order creation failed.");
-      }
+      console.log("Razorpay order response:", orderRes);
+      const { order, paymentId } = orderRes;
 
-      const { order, paymentId, key } = orderRes;
+      console.log("^^^^^^^^^^^^^^^^^^^^^^^^^ The razorpay Key is from env :^^^^^^^^^^^^^^^^^^^^^", process.env.RAZORPAY_KEY_ID);
 
-      console.log("The value of the orderRes",orderRes);
-      
-
-      // 4️⃣ OPEN RAZORPAY CHECKOUT
-      const options = {
-        description: `Booking for ${selectedSeats.length} seat(s)`,
-        image: "https://i.imgur.com/3g7nmJC.png",
-        currency: "INR",
-        key: key || "rzp_test_1DP5mmOlF5G5ag",
-        amount: totalPrice * 100,
-        order_id: order.id,
-        name: movie?.movieName || "BookMyShow",
-        prefill: {
-          name: user.name || "Customer",
-          email: user.email || "customer@example.com",
-          contact: user.phone || "9999999999",
-        },
-        theme: { color: "#ff2e63" },
-      };
-
-      // 5️⃣ OPEN RAZORPAY CHECKOUT AND HANDLE PAYMENT
-      RazorpayCheckout.open(options)
-        .then(async (paymentData) => {
-          try {
-            // VERIFY PAYMENT
-            await verifyPayment({
-              bookingId,
-              paymentDbId: paymentId,
-              razorpayOrderId: paymentData.razorpay_order_id,
-              razorpayPaymentId: paymentData.razorpay_payment_id,
-              razorpaySignature: paymentData.razorpay_signature,
-            }).unwrap();
-
-            // CONFIRM BOOKING
-            const confirmRes = await confirmBooking({
-              bookingId,
-              paymentId,
-            }).unwrap();
-
-            dispatch(clearSelectedSeats());
-
-            Alert.alert("Success", "Your tickets are booked!", [
-              { text: "OK", onPress: () => navigation.navigate("Orders") },
-            ]);
-          } catch (verifyErr) {
-            console.log("Verification error:", verifyErr);
-            Alert.alert("Verification Error", verifyErr?.message || "Payment verification failed");
-          } finally {
-            setIsPaymentProcessing(false);
-          }
-        })
-        .catch((error) => {
-          console.log("Payment cancelled or failed:", error);
-          setIsPaymentProcessing(false);
-          Alert.alert("Payment Failed", error?.message || "Please try again");
-        });
+      console.log("Razorpay order created:", order);
+      // 4️⃣ Open Razorpay Web Checkout screen
+      navigation.navigate("RazorpayCheckoutScreen", {
+        orderId: order.id,
+        amount: order.amount,
+        user,
+        paymentId,
+        bookingId,
+      });
     } catch (err) {
-      Alert.alert("Error", err.message);
       console.log("Booking error:", err);
-    } finally {
-      setIsPaymentProcessing(false);
+      Alert.alert("Error", err.message);
     }
-  };
-
-  /** Seat background */
-  const seatColor = (seat) => {
-    if (selectedSeats.includes(seat._id)) return "#228B22"; // selected
-    if (seat.status === "BOOKED") return "#d3d3d3";
-    if (seat.status === "BLOCKED") return "#ddd";
-    return "#fff";
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{movie.movieName}</Text>
-        <Text style={styles.ticketCount}>{selectedSeats.length} Tickets</Text>
+        <Text>{selectedSeats.length} Seat(s)</Text>
       </View>
 
-      {/* Seats Grid */}
       {isLoading ? (
-        <ActivityIndicator size="large" color="#ff2e63" />
+        <ActivityIndicator size="large" />
       ) : (
         <ScrollView style={styles.seatsContainer}>
           <View style={styles.seatsGrid}>
             {seatsData?.map((seat) => (
               <TouchableOpacity
                 key={seat._id}
-                disabled={["BOOKED", "BLOCKED", "SOLD"].includes(seat.status)}
-                onPress={() => handleSeatPress(seat)}
                 style={[
                   styles.seat,
-                  { backgroundColor: seatColor(seat) },
+                  {
+                    backgroundColor: selectedSeats.includes(seat._id)
+                      ? "green"
+                      : seat.status === "BOOKED"
+                      ? "#ccc"
+                      : "#fff",
+                  },
                 ]}
+                onPress={() => handleSeatPress(seat)}
               >
-                <Text style={styles.seatText}>{seat.seatNumber}</Text>
+                <Text>{seat.seatNumber}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </ScrollView>
       )}
 
-      {/* Bottom Bar */}
       <View style={styles.bottomBar}>
-        <View>
-          <Text>{selectedSeats.length} Seat(s)</Text>
-          <Text style={styles.totalPrice}>₹ {totalPrice}</Text>
-        </View>
-
+        <Text style={styles.totalPrice}>₹ {totalPrice}</Text>
         <TouchableOpacity
+          style={styles.payButton}
           onPress={handleBookSeats}
-          disabled={selectedSeats.length === 0 || isPaymentProcessing}
-          style={[
-            styles.payButton,
-            {
-              opacity:
-                selectedSeats.length === 0 || isPaymentProcessing ? 0.4 : 1,
-            },
-          ]}
+          disabled={selectedSeats.length === 0}
         >
           <Text style={styles.payButtonText}>Pay ₹ {totalPrice}</Text>
         </TouchableOpacity>
@@ -284,7 +176,7 @@ function BookingScreen({ route, navigation }) {
 
 
 
-export default BookingScreen;
+
 
 const styles = StyleSheet.create({
   container: {

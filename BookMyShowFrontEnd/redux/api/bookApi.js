@@ -27,6 +27,13 @@ export const bookApi = createApi({
         method: "PUT",
       }),
     }),
+
+    getUserBookings: builder.query({
+      query: (userId) => ({
+        url: `Booking/bookings/user/${userId}`,
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -34,6 +41,7 @@ export const {
   useCreatePendingBookingMutation,
   useConfirmBookingMutation,
   useCancelBookingMutation,
+  useGetUserBookingsQuery,
 } = bookApi;
 
 export default bookApi;

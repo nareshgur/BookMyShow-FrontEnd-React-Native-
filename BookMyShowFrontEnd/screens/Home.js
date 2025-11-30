@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
 import { useGetMoviesByCityQuery } from "../redux/api/movieApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Ionicons from "react-native-vector-icons/Ionicons";
+
 useGetMoviesByCityQuery;
 export default function HomeScreen({ navigation }) {
   // Get selected city from Redux store
@@ -23,10 +25,13 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     async function loadCity() {
       const city = await AsyncStorage.getItem("selectedCity");
+      const cityId = await AsyncStorage.getItem("selectedCityId");
       console.log("City loaded:", city);
+      console.log("CityId loaded:", cityId);
       setSelectedCity(city);
     }
     loadCity();
+
   }, []);
 
   useEffect(() => {
@@ -65,7 +70,15 @@ export default function HomeScreen({ navigation }) {
               {selectedCity || "Select City"} ▾
             </Text>
           </TouchableOpacity>
+                  <TouchableOpacity
+    style={styles.searchButton}
+    onPress={() => navigation.navigate("SearchTheatre")}
+  >
+    <Ionicons name="search" size={24} color="black" />
+  </TouchableOpacity>
         </View>
+
+
 
         {/* Categories */}``
         <ScrollView
@@ -155,9 +168,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  searchButton: {
+  padding: 6,
+  backgroundColor: "#f2f2f2",
+  borderRadius: 8,
+},
+
   headerContainer: {
     paddingHorizontal: 16,
     paddingVertical: 10,
+    flexDirection:"row",
+    justifyContent:"space-between",
+    alignItems:"center"
   },
   headerTitle: {
     fontSize: 22,
