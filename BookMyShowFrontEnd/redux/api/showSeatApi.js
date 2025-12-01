@@ -4,6 +4,7 @@ import { dynamicBaseQuery } from "../../utils/dynamicBaseQuery";
 export const showSeatApi = createApi({
   reducerPath: "showSeatApi",
   baseQuery: dynamicBaseQuery,
+  tagTypes: ["ShowSeats"], // ✅ Add tag types for cache invalidation
   endpoints: (builder) => ({
     createShowSeats: builder.mutation({
       query: ({ showId, screenId }) => ({
@@ -14,6 +15,7 @@ export const showSeatApi = createApi({
 
     getShowSeatsByShow: builder.query({
       query: (showId) => `ShowSeat/ShowSeat/${showId}`,
+      providesTags: (result, error, showId) => [{ type: "ShowSeats", id: showId }], // ✅ Provide tag
     }),
 
     blockSeats: builder.mutation({
@@ -22,6 +24,7 @@ export const showSeatApi = createApi({
         method: "PUT",
         body,
       }),
+      invalidatesTags: (result, error, { showId }) => [{ type: "ShowSeats", id: showId }], // ✅ Invalidate on block
     }),
 
     bookSeats: builder.mutation({

@@ -49,6 +49,7 @@ export const {
   useGetShowsByScreenQuery,
   useUpdateShowMutation,
   useDeleteShowMutation,
+  useGetShowsByMovieCityDateQuery,
 } = showApi;
 
 export default showApi;

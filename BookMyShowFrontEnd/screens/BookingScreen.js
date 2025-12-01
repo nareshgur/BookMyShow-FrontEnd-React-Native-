@@ -116,6 +116,7 @@ export default function BookingScreen({ route, navigation }) {
         user,
         paymentId,
         bookingId,
+        showId: show?._id, // ✅ Pass showId for cache invalidation
       });
     } catch (err) {
       console.log("Booking error:", err);

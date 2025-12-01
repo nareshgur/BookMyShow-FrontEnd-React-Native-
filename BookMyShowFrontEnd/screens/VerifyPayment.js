@@ -12,9 +12,10 @@ import { useDispatch } from "react-redux";
 import { clearSelectedSeats } from "../redux/slices/showSeatSlice";
 
 import { useVerifyPaymentMutation } from "../redux/api/paymentApi";
+import { showSeatApi } from "../redux/api/showSeatApi"; // ✅ Import for refetch
 
 export default function VerifyPayment({ route, navigation }) {
-  const { bookingId, paymentId, razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+  const { bookingId, paymentId, razorpay_order_id, razorpay_payment_id, razorpay_signature, showId } =
     route.params;
 
   const [verifyPayment] = useVerifyPaymentMutation();
@@ -60,7 +61,12 @@ export default function VerifyPayment({ route, navigation }) {
 
       async function fetchBookingAndNavigate() {
         try {
-          const response = await fetch(`http://192.168.1.8:3000/api/Booking/booking/${bookingId}`);
+          // ✅ REFETCH SEATS DATA AFTER PAYMENT SUCCESS
+          if (showId) {
+            dispatch(showSeatApi.util.invalidateTags([{ type: "ShowSeats", id: showId }]));
+          }
+
+          const response = await fetch(`http://10.90.13.242:3000/api/Booking/booking/${bookingId}`);
           console.log("Data fetched for booking navigation:", response);
           const booking = await response.json();
           const timer = setTimeout(() => navigation.replace("TicketScreen", { booking: booking.data }), 1800);

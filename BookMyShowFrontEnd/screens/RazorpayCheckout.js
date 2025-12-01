@@ -4,7 +4,7 @@ import React from "react";
 import { WebView } from "react-native-webview";
 
 export default function RazorpayCheckoutScreen({ route, navigation }) {
-  const { orderId, amount, user, bookingId, paymentId } = route.params;
+  const { orderId, amount, user, bookingId, paymentId, showId } = route.params;
 
   console.log("The data we received inside the checout screen:");
   console.log("The orderId is:", orderId);
@@ -34,6 +34,7 @@ export default function RazorpayCheckoutScreen({ route, navigation }) {
               success: true,
               paymentId: "${paymentId}",
               bookingId: "${bookingId}",
+              showId: "${showId}",
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature
@@ -65,6 +66,7 @@ export default function RazorpayCheckoutScreen({ route, navigation }) {
         navigation.replace("VerifyPayment", {
           bookingId: data.bookingId,
           paymentId: data.paymentId,
+          showId: data.showId,
           razorpay_order_id: data.razorpay_order_id,
           razorpay_payment_id: data.razorpay_payment_id,
           razorpay_signature: data.razorpay_signature,
@@ -75,7 +77,7 @@ export default function RazorpayCheckoutScreen({ route, navigation }) {
           // If you use auth token add it here:
           const token = await AsyncStorage.getItem("token");
 
-          await fetch(`http://192.168.1.8:3000/api/Payment/cancel`, {
+          await fetch(`http://10.90.13.242:3000/api/Payment/cancel`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

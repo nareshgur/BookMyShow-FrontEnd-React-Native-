@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 
-const API_BASE = "http://192.168.1.8:3000/api"; // change to your base
+const API_BASE = "http://10.90.13.242:3000/api"; // change to your base
 
 export default function SearchTheatreScreen({ navigation }) {
   const [query, setQuery] = useState("");

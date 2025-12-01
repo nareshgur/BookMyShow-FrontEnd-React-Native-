@@ -80,7 +80,7 @@ export default function HomeScreen({ navigation }) {
 
 
 
-        {/* Categories */}``
+        {/* Categories */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

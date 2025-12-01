@@ -4,6 +4,7 @@ import { dynamicBaseQuery } from "../../utils/dynamicBaseQuery";
 export const bookApi = createApi({
   reducerPath: "bookApi",
   baseQuery: dynamicBaseQuery,
+  tagTypes: ["Bookings"], // ✅ Add tag type
   endpoints: (builder) => ({
     createPendingBooking: builder.mutation({
       query: (body) => ({
@@ -19,6 +20,8 @@ export const bookApi = createApi({
         method: "PUT",
         body: { paymentId },
       }),
+      // ✅ Invalidate seats cache when booking is confirmed
+      invalidatesTags: ["ShowSeats"],
     }),
 
     cancelBooking: builder.mutation({

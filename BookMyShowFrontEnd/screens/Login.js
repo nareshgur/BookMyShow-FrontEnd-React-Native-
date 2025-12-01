@@ -1,123 +1,173 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
-  Button,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextInputBase,
   View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
 } from "react-native";
-import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
-import { useLoginMutation } from "../redux/api/authApi";
-import { useDispatch } from "react-redux";
-import { setCredentials } from "../redux/slices/authSlice";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";   // ⭐ ADDED
+import { useDispatch, useSelector } from "react-redux";
 
+import {
+  useGetShowSeatsByShowQuery,
+} from "../redux/api/showSeatApi";
 
-function Login() {
-  const navigate = useNavigation();
+import {
+  toggleSelectedSeat,
+  clearSelectedSeats,
+  setSeats,
+} from "../redux/slices/showSeatSlice";
+
+import {
+  useCreatePendingBookingMutation,
+} from "../redux/api/bookApi";
+
+import {
+  useCreateRazorpayOrderMutation,
+} from "../redux/api/paymentApi";
+
+import { setCurrentBooking } from "../redux/slices/bookSlice";
+
+export default function BookingScreen({ route, navigation }) {
+  const { show, movie } = route.params;
   const dispatch = useDispatch();
-  const [email, setMail] = useState("");
-  const [Password, setPassword] = useState("");
-  const [login, { isLoading }] = useLoginMutation();
-    
-  const navigation = useNavigation();
 
+  const selectedSeats = useSelector((state) => state.showSeat.selectedSeats);
+  const user = useSelector((state) => state.auth.user);
+  const userId = user?._id;
+
+  // Fetch seats
+  const { data: seatsData, isLoading, refetch } = useGetShowSeatsByShowQuery(
+    show?._id,
+    { skip: !show?._id }
+  );
+
+  const [createPendingBooking] = useCreatePendingBookingMutation();
+  const [createRazorpayOrder] = useCreateRazorpayOrderMutation();
+
+  const seatPrice = 150;
+  const totalPrice = selectedSeats.length * seatPrice;
+
+  // Load seats into Redux
   useEffect(() => {
-    console.log("Login screen mounted");
-    async function userDetails(){
-      const token = await AsyncStorage.getItem("token");
+    if (seatsData) {
+      dispatch(setSeats(seatsData));
+    }
+  }, [seatsData]);
 
-        await AsyncStorage.multiRemove(["selectedCity", "selectedCityId"]);
-      const city = await AsyncStorage.getItem("selectedCity");
-      const cityId = await AsyncStorage.getItem("selectedCityId");
-      console.log("The token from AsyncStorage is ", token);
-      console.log("The city from AsyncStorage is ", city);
-      if(token && city){
-        console.log("User already logged in, navigating to MainApp");
-        // navigate.replace("SelectCity");
-        navigate.replace("MainApp");
-      }else if(token && !cityId){
-        console.log("User logged in but city not selected, navigating to SelectCity");
-        navigate.replace("SelectCity");
-      }
-    } 
-    userDetails();
+  // ⭐ ADDED: Refresh seats + clear selected seats when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("🔄 Screen focused → refreshing seats");
+      refetch();                 // fetch latest seat status
+      dispatch(clearSelectedSeats());   // reset seat selection
+      return () => {};
+    }, [])
+  );
+
+  // Clear seats if component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(clearSelectedSeats());
+    };
   }, []);
 
+  const handleSeatPress = (seat) => {
+    if (["BOOKED", "BLOCKED", "SOLD"].includes(seat.status)) return;
+    dispatch(toggleSelectedSeat(seat._id));
+  };
 
-  async function LoginOpe() {
-    console.log("LoginOpe called");
+  const handleBookSeats = async () => {
+    if (!userId) {
+      return Alert.alert("Not Logged In", "Please login to continue.");
+    }
+    if (selectedSeats.length === 0) {
+      return Alert.alert("Select Seats", "Choose at least one seat.");
+    }
 
     try {
-      // const res = await axios.post("http://192.168.1.8:3000/api/Auth/login", {
-      //   email: email,
-      //   Password: password
-      // });
+      // 1️⃣ Create pending booking
+      const bookingRes = await createPendingBooking({
+        userId,
+        showId: show._id,
+        showSeatIds: selectedSeats,
+      }).unwrap();
 
-      const res = await login({ email, Password }).unwrap();
-      console.log("The result of backend login ", res.data);
-      // const {data,token} = res.data.data
-      dispatch(setCredentials(res.data));
+      const bookingId = bookingRes.data._id;
+      dispatch(setCurrentBooking(bookingRes.data));
 
-      // console.log("The data is",res.data.data," The token is ",res.data.data.token);
-      AsyncStorage.setItem("token", res.data.token);
-      AsyncStorage.setItem("user", JSON.stringify(res.data.user));
+      // 2️⃣ Create Razorpay order
+      const orderRes = await createRazorpayOrder({ bookingId }).unwrap();
+      const { order, paymentId } = orderRes;
 
-
-
-      navigate.navigate("SelectCity");
+      // 3️⃣ Navigate to Razorpay checkout
+      navigation.navigate("RazorpayCheckoutScreen", {
+        orderId: order.id,
+        amount: order.amount,
+        user,
+        paymentId,
+        bookingId,
+      });
     } catch (err) {
-      console.log("Login error: ", err);
-      console.log("Something went wrong ", err);
+      console.log("Booking error:", err);
+      Alert.alert("Error", err.message);
     }
-  }
+  };
 
   return (
-    <View style={styles.container}>
-      <Text>Login Screen</Text>
-      <View style={styles.inputContainer}>
-        <View>
-          <Text>Email : </Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={(text) => setMail(text)}
-            placeholder="Enter Email"
-          />
-        </View>
-        <View>
-          <Text>Password : </Text>
-          <TextInput
-            style={styles.input}
-            value={Password}
-            onChangeText={(text) => setPassword(text)}
-            placeholder="Enter Password"
-          />
-        </View>
-        <Pressable
-          style={styles.button}
-          onPress={() => {
-            console.log("Button is clicked ");
-            LoginOpe();
-          }}
-          placeholder="Login"
-        >
-          <Text>Login</Text>
-        </Pressable>
-        <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-                <Text style={styles.registerText}>
-                  Already have an account? Login
-                </Text>
-              </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backText}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{movie.movieName}</Text>
+        <Text>{selectedSeats.length} Seat(s)</Text>
       </View>
-    </View>
+
+      {isLoading ? (
+        <ActivityIndicator size="large" />
+      ) : (
+        <ScrollView style={styles.seatsContainer}>
+          <View style={styles.seatsGrid}>
+            {seatsData?.map((seat) => (
+              <TouchableOpacity
+                key={seat._id}
+                style={[
+                  styles.seat,
+                  {
+                    backgroundColor: selectedSeats.includes(seat._id)
+                      ? "green"
+                      : seat.status === "BOOKED"
+                      ? "#ccc"
+                      : "#fff",
+                  },
+                ]}
+                onPress={() => handleSeatPress(seat)}
+              >
+                <Text>{seat.seatNumber}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+
+      <View style={styles.bottomBar}>
+        <Text style={styles.totalPrice}>₹ {totalPrice}</Text>
+        <TouchableOpacity
+          style={styles.payButton}
+          onPress={handleBookSeats}
+          disabled={selectedSeats.length === 0}
+        >
+          <Text style={styles.payButtonText}>Pay ₹ {totalPrice}</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
-
-export default Login;
 
 const styles = StyleSheet.create({
   container: {

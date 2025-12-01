@@ -11,9 +11,11 @@ import {
   Linking,
   Alert,
 } from "react-native";
+import { useSelector } from "react-redux";
 
 export default function MovieDetailsScreen({ route, navigation }) {
   const { movie } = route.params;
+  const selectedCity = useSelector((state) => state.city?.selectedCity);
 
   const [details, setDetails] = useState(null);
   const [credits, setCredits] = useState(null);
@@ -202,8 +204,12 @@ export default function MovieDetailsScreen({ route, navigation }) {
         <TouchableOpacity
           style={styles.bookButton}
           onPress={() => {
-            // navigate to Shows screen and pass movieId
-            navigation.navigate('Shows', { movieId: movie.movieId, movie });
+            // navigate to Shows screen and pass movieId and city
+            navigation.navigate('Shows', { 
+              movieId: movie.movieId, 
+              movie,
+              city: selectedCity
+            });
           }}
         >
           <Text style={styles.bookText}>Book tickets</Text>
