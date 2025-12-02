@@ -15,6 +15,9 @@ import { useSelector } from "react-redux";
 
 export default function MovieDetailsScreen({ route, navigation }) {
   const { movie } = route.params;
+
+
+  console.log("MovieDetailsScreen - route.params:", route.params);  console.log("MovieDetailsScreen - movie:", movie);
   const selectedCity = useSelector((state) => state.city?.selectedCity);
 
   const [details, setDetails] = useState(null);

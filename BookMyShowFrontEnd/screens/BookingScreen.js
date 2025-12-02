@@ -74,6 +74,32 @@ export default function BookingScreen({ route, navigation }) {
     }
   }, []);
 
+
+  // Group seats by row
+const groupSeatsByRow = (seats) => {
+  const rows = {};
+
+  seats.forEach((seat) => {
+    const row = seat.seatNumber[0]; // A, B, C...
+    if (!rows[row]) rows[row] = [];
+    rows[row].push(seat);
+  });
+
+  // Sort seats correctly inside each row (A1..A10)
+  Object.keys(rows).forEach((row) => {
+    rows[row].sort((a, b) => {
+      const numA = parseInt(a.seatNumber.slice(1));
+      const numB = parseInt(b.seatNumber.slice(1));
+      return numA - numB;
+    });
+  });
+
+  return rows;
+};
+
+const groupedRows = seatsData ? groupSeatsByRow(seatsData) : {};
+
+
   const handleBookSeats = async () => {
     if (!userId) {
       return Alert.alert("Not Logged In", "Please login to continue.");
@@ -138,27 +164,67 @@ export default function BookingScreen({ route, navigation }) {
         <ActivityIndicator size="large" />
       ) : (
         <ScrollView style={styles.seatsContainer}>
-          <View style={styles.seatsGrid}>
-            {seatsData?.map((seat) => (
-              <TouchableOpacity
-                key={seat._id}
-                style={[
-                  styles.seat,
-                  {
-                    backgroundColor: selectedSeats.includes(seat._id)
-                      ? "green"
-                      : seat.status === "BOOKED"
-                      ? "#ccc"
-                      : "#fff",
-                  },
-                ]}
-                onPress={() => handleSeatPress(seat)}
-              >
-                <Text>{seat.seatNumber}</Text>
-              </TouchableOpacity>
-            ))}
+  <View style={styles.seatsWrapper}>
+    {Object.entries(groupedRows).map(([rowLabel, rowSeats]) => {
+      
+      const leftBlock = rowSeats.slice(0, 5);
+      const rightBlock = rowSeats.slice(5, 10);
+
+      return (
+        <View key={rowLabel} style={styles.rowContainer}>
+          
+          {/* Row Label */}
+          <Text style={styles.rowLabel}>{rowLabel}</Text>
+
+          {/* Seats + Gap */}
+          <View style={styles.rowSeats}>
+            
+            {/* LEFT BLOCK */}
+            <View style={styles.block}>
+              {leftBlock.map((seat) => (
+                <TouchableOpacity
+                  key={seat._id}
+                  style={[
+                    styles.seatBox,
+                    seat.status === "BOOKED" && styles.seatBooked,
+                    seat.status === "BLOCKED" && styles.seatBlocked,
+                    selectedSeats.includes(seat._id) && styles.seatSelected,
+                  ]}
+                  onPress={() => handleSeatPress(seat)}
+                >
+                  <Text style={styles.seatText}>{seat.seatNumber}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* GAP */}
+            <View style={styles.gap} />
+
+            {/* RIGHT BLOCK */}
+            <View style={styles.block}>
+              {rightBlock.map((seat) => (
+                <TouchableOpacity
+                  key={seat._id}
+                  style={[
+                    styles.seatBox,
+                    seat.status === "BOOKED" && styles.seatBooked,
+                    seat.status === "BLOCKED" && styles.seatBlocked,
+                    selectedSeats.includes(seat._id) && styles.seatSelected,
+                  ]}
+                  onPress={() => handleSeatPress(seat)}
+                >
+                  <Text style={styles.seatText}>{seat.seatNumber}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
           </View>
-        </ScrollView>
+        </View>
+      );
+    })}
+  </View>
+</ScrollView>
+
       )}
 
       <View style={styles.bottomBar}>
@@ -184,6 +250,74 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  seatsWrapper: {
+    paddingHorizontal: 6,
+    paddingTop: 12,
+  },
+
+  rowContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  rowLabel: {
+    width: 18,
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#444",
+    marginRight: 6,
+    textAlign: "center",
+  },
+
+  rowSeats: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
+
+  block: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  gap: {
+    width: 25,
+  },
+
+  seatBox: {
+    width: 34,
+    height: 34,
+    borderWidth: 1.5,
+    borderColor: "#bbb",
+    borderRadius: 5,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+seatText: {
+  fontSize: 11,
+  fontWeight: "600",
+  color: "#333",
+},
+
+seatSelected: {
+  backgroundColor: "#4caf50",
+  borderColor: "#2e7d32",
+},
+
+seatBooked: {
+  backgroundColor: "#ccc",
+  borderColor: "#aaa",
+},
+
+seatBlocked: {
+  backgroundColor: "#ffcc80",
+  borderColor: "#fb8c00",
+},
+
   header: {
     height: 60,
     flexDirection: "row",

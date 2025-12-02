@@ -24,6 +24,10 @@ export const showApi = createApi({
     getShowsByScreen: builder.query({
       query: (screenId) => `Shows/Show/Screen/${screenId}`,
     }),
+    searchShows: builder.query({
+      query: ({ query, city }) =>
+        `Shows/search?q=${query}&city=${city || ""}`,
+    }),
 
     updateShow: builder.mutation({
       query: ({ id, body }) => ({ url: `Shows/Show/${id}`, method: "PUT", body }),
@@ -32,7 +36,7 @@ export const showApi = createApi({
     deleteShow: builder.mutation({
       query: (id) => ({ url: `Shows/Show/${id}`, method: "DELETE" }),
     }),
-     getShowsByMovieCityDate: builder.query({
+    getShowsByMovieCityDate: builder.query({
       query: ({ movieId, city, date }) =>
         `Shows/Show/Filter?movieId=${movieId}&city=${city}&date=${date}`,
     }),
@@ -50,6 +54,7 @@ export const {
   useUpdateShowMutation,
   useDeleteShowMutation,
   useGetShowsByMovieCityDateQuery,
+  useSearchShowsQuery
 } = showApi;
 
 export default showApi;
