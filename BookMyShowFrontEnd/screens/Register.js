@@ -9,7 +9,7 @@ import {
   Alert
 } from "react-native";
 
-const API_BASE = "http://10.90.13.242:3000/api";  // your backend
+const API_BASE = "http://10.40.6.116:3000/api";  // match the backend URL from dynamicBaseQuery
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState("");
@@ -26,11 +26,23 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert("Missing Fields", "Please fill all the fields");
       return;
     }
+
+    // Email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address");
+      return;
+    }
+
+    // Password validation
+    if (password.length < 6) {
+      Alert.alert("Weak Password", "Password must be at least 6 characters");
+      return;
+    }
   
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/register`, {
+      const response = await fetch(`${API_BASE}/Auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -41,23 +53,34 @@ export default function RegisterScreen({ navigation }) {
         }),
       });
 
-      const data = await response.json();
+      // Check if response is JSON
+      const contentType = response.headers.get("content-type");
+      let data;
+      
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        // Response is not JSON (likely HTML error page)
+        const text = await response.text();
+        console.log("Non-JSON response:", text.substring(0, 200));
+        throw new Error(`Server error: ${response.status}`);
+      }
 
       console.log("Register response:", data);
 
       if (response.status === 200) {
         Alert.alert("Success", "Account created successfully");
-
         // Redirect to Login
         navigation.replace("Login");
       } else {
-        Alert.alert("Error", data);
+        const errorMessage = typeof data === "string" ? data : data.message || "Registration failed";
+        Alert.alert("Error", errorMessage);
         console.log("Registration failed:", data);
       }
 
     } catch (error) {
-      Alert.alert("Error", "Something went wrong");
-      console.log("Register error:", error);
+      console.log("Register error:", error.message);
+      Alert.alert("Error", error.message || "Something went wrong. Please check your internet and try again.");
 
     } finally {
       setLoading(false);

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -61,7 +62,7 @@ export default function HomeScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        {/* Header */}r
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>It All Starts Here!</Text>
 
@@ -134,30 +135,32 @@ export default function HomeScreen({ navigation }) {
         )}
 
         {/* === Movie List === */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.recommendList}
-        >
-          {movies?.map((movie) => (
-            <TouchableOpacity
-              key={movie.movieId}
-              style={styles.movieCard}
-              onPress={() => navigation.navigate("MovieDetails", { movie })}
-            >
-              <Image
-                source={{
-                  uri:
-                    movie.moviePoster || "https://via.placeholder.com/120x180",
-                }}
-                style={styles.movieImage}
-              />
-              <Text style={styles.movieTitle} numberOfLines={1}>
-                {movie.movieName}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.recommendList}>
+          <FlatList
+            data={movies}
+            keyExtractor={(item) => String(item.movieId)}
+            numColumns={3}
+            scrollEnabled={false}
+            columnWrapperStyle={styles.columnWrapper}
+            renderItem={({ item: movie }) => (
+              <TouchableOpacity
+                style={styles.movieCard}
+                onPress={() => navigation.navigate("MovieDetails", { movie })}
+              >
+                <Image
+                  source={{
+                    uri:
+                      movie.moviePoster || "https://via.placeholder.com/120x180",
+                  }}
+                  style={styles.movieImage}
+                />
+                <Text style={styles.movieTitle} numberOfLines={2}>
+                  {movie.movieName}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -235,18 +238,25 @@ const styles = StyleSheet.create({
   recommendList: {
     marginTop: 12,
     paddingHorizontal: 16,
+    marginBottom: 20,
+  },
+  columnWrapper: {
+    justifyContent: "space-between",
+    marginBottom: 20,
   },
   movieCard: {
-    marginRight: 14,
+    alignItems: "center",
+    width: "31%",
   },
   movieImage: {
-    width: 120,
-    height: 180,
+    width: "100%",
+    aspectRatio: 2 / 3,
     borderRadius: 10,
   },
   movieTitle: {
-    marginTop: 6,
-    width: 120,
-    fontSize: 13,
+    marginTop: 8,
+    width: "100%",
+    fontSize: 12,
+    textAlign: "center",
   },
 });
