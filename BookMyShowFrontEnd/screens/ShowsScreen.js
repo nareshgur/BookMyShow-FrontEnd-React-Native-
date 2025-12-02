@@ -13,11 +13,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useGetShowsByMovieQuery, useGetShowsByMovieCityDateQuery } from "../redux/api/showApi";
 
-const BASE_API = "http://10.40.6.116:3000/api"; 
+const BASE_API = "http://10.90.13.242:3000/api"; 
 
 export default function ShowsScreen({ route, navigation }) {
   const { movieId, movie, city: cityFromParams } = route.params || {};
   
+  console.log("ShowsScreen - route.params:", route.params);
+  console.log("ShowsScreen - movieId:", movieId);
+  console.log("ShowsScreen - cityFromParams:", cityFromParams);
+  console.log("ShowsScreen - movie:", movie);
+  console.log("ShowsScreen - movieTitle:", movieTitle);
   // Extract only serializable data from movie
   const movieTitle = movie?.movieName || movie?.title || "Movies";
   
@@ -25,6 +30,7 @@ export default function ShowsScreen({ route, navigation }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [loadingFilter, setLoadingFilter] = useState(false);
   const [filteredShows, setFilteredShows] = useState([]);
+  const [theatreNames, setTheatreNames] = useState({}); // Store fetched theatre names
 
   // Load city from AsyncStorage if not provided in params
   useEffect(() => {
@@ -105,6 +111,44 @@ export default function ShowsScreen({ route, navigation }) {
     console.log("Filtered shows list:", list);
     setFilteredShows(list);
   }, [showsData, isError]);
+
+  // Fetch theatre names from API for all theatre IDs in shows
+  useEffect(() => {
+    if (!Array.isArray(filteredShows) || filteredShows.length === 0) return;
+
+    const fetchTheatreNames = async () => {
+      const uniqueTheatreIds = [...new Set(filteredShows.map(show => show.theatreId))];
+      
+      const newTheatreNames = { ...theatreNames };
+      
+      for (const theatreId of uniqueTheatreIds) {
+        // Skip if already fetched
+        if (newTheatreNames[theatreId]) continue;
+
+        try {
+          const response = await fetch(
+            `${BASE_API}/Theatre/Theatres/id/${theatreId}`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            newTheatreNames[theatreId] = data.name || data.theatreName || theatreId;
+            console.log(`Fetched theatre name for ${theatreId}:`, newTheatreNames[theatreId]);
+          } else {
+            // If API fails, use theatreId as fallback
+            newTheatreNames[theatreId] = theatreId;
+          }
+        } catch (error) {
+          console.log(`Error fetching theatre ${theatreId}:`, error);
+          newTheatreNames[theatreId] = theatreId;
+        }
+      }
+      
+      setTheatreNames(newTheatreNames);
+    };
+
+    fetchTheatreNames();
+  }, [filteredShows]);
 
   // Group shows by theatre first, then by movie within theatre
   // const showsByTheatreAndMovie = useMemo(() => {
@@ -247,7 +291,7 @@ export default function ShowsScreen({ route, navigation }) {
             <View style={styles.theatreHeader}>
               <View style={styles.theatreInfo}>
                 <Text style={styles.theatreName}>
-                  {theatreGroup.theatre?.name || theatreId}
+                  {theatreNames[theatreId] || theatreId}
                 </Text>
                 <Text style={styles.theatreLocation}>
                   {theatreGroup.theatre?.location || ""}

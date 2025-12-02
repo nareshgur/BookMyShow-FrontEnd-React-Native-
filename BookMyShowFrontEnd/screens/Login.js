@@ -20,63 +20,108 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+  });
+
   const dispatch = useDispatch();
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   
   // RTK Query mutation
   const [login, { isLoading }] = useLoginMutation();
 
+  // Validation patterns
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,6}$/;
+  const PASSWORD_MIN_LEN = 8;
+
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      navigation.replace("MainApp");
+    async function checkAuthAndRedirect() {
+      const token = await AsyncStorage.getItem("token");
+      const user = await AsyncStorage.getItem("user");
+      if (token && user) {
+        navigation.replace("MainApp");
+      }
     }
+    checkAuthAndRedirect();
   }, [isAuthenticated]);
 
-  const handleLogin = async () => {
-    // Validation
-    if (!email || !password) {
-      Alert.alert("Validation Error", "Please enter email and password");
-      return;
+  // Real-time validation function
+  const validateField = (fieldName, value) => {
+    let error = "";
+
+    switch (fieldName) {
+      case "email":
+        if (!value) error = "Email is required";
+        else if (!EMAIL_REGEX.test(value)) error = "Invalid email format (use: name@domain.com)";
+        break;
+
+      case "password":
+        if (!value) error = "Password is required";
+        else if (value.length < PASSWORD_MIN_LEN) error = `Password must be at least ${PASSWORD_MIN_LEN} characters`;
+        break;
+
+      default:
+        break;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      Alert.alert("Validation Error", "Please enter a valid email");
+    setErrors((prev) => ({ ...prev, [fieldName]: error }));
+    return error === "";
+  };
+
+  const handleFieldChange = (fieldName, value) => {
+    if (fieldName === "email") {
+      setEmail(value);
+    } else if (fieldName === "password") {
+      setPassword(value);
+    }
+    // Validate on change
+    validateField(fieldName, value);
+  };
+
+  const validateAll = () => {
+    const emailValid = validateField("email", email);
+    const passwordValid = validateField("password", password);
+    return emailValid && passwordValid;
+  };
+
+  const handleLogin = async () => {
+    if (!validateAll()) {
+      Alert.alert("Validation Error", "Please fix all errors before logging in");
       return;
     }
 
     try {
-      // Call login mutation with credentials
       const result = await login({
         email,
-        Password: password, // backend expects capital P
+        Password: password,
       }).unwrap();
 
-      console.log("Login successful:", result);
+      // result structure now: { status, message, data: { token, user } }
+      const status = result.status ?? 200;
+      if (status >= 400) {
+        const msg = result.message || "Login failed";
+        Alert.alert("Login Failed", msg);
+        return;
+      }
 
-      // Extract token and user from response
-      const { token, user } = result.data || result;
+      const { token, user } = result.data || {};
 
       if (token) {
-        // Dispatch credentials to Redux auth state
-        dispatch(
-          setCredentials({
-            token,
-            user: user || { email },
-          })
-        );
-
+        dispatch(setCredentials({ token, user: user || { email } }));
         Alert.alert("Success", `Welcome back, ${user?.name || email}!`);
-        // Navigation will happen automatically via isAuthenticated watcher
       } else {
         Alert.alert("Error", "No token received from server");
       }
-    } catch (error) {
-      console.log("Login error:", error);
-      const errorMessage = error?.data || error?.message || "Login failed";
-      Alert.alert("Login Failed", errorMessage);
+    } catch (err) {
+      console.log("Login error:", err);
+      // RTK Query error shape: err.data or err.error
+      const serverMessage = err?.data?.message || err?.data || err?.message || "Login failed";
+      Alert.alert("Login Failed", serverMessage);
     }
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -97,21 +142,22 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.inputWrapper}>
               <Text style={styles.label}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.email && styles.inputError]}
                 placeholder="Enter your email"
                 placeholderTextColor="#999"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isLoading}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => handleFieldChange("email", value)}
               />
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
 
             {/* Password Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordContainer}>
+              <View style={[styles.passwordContainer, errors.password && styles.inputError]}>
                 <TextInput
                   style={styles.passwordInput}
                   placeholder="Enter your password"
@@ -119,7 +165,7 @@ export default function LoginScreen({ navigation }) {
                   secureTextEntry={!showPassword}
                   editable={!isLoading}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(value) => handleFieldChange("password", value)}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -128,6 +174,7 @@ export default function LoginScreen({ navigation }) {
                   <Text style={styles.eyeText}>{showPassword ? "👁️" : "👁️‍🗨️"}</Text>
                 </TouchableOpacity>
               </View>
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
             {/* Forgot Password */}
@@ -233,6 +280,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
   },
+  inputError: {
+    borderColor: "#ff2e63",
+    borderWidth: 2,
+  },
   passwordContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -252,6 +303,12 @@ const styles = StyleSheet.create({
   },
   eyeText: {
     fontSize: 18,
+  },
+  errorText: {
+    color: "#ff2e63",
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: "500",
   },
   forgotPasswordBtn: {
     alignSelf: "flex-end",
@@ -317,173 +374,3 @@ const styles = StyleSheet.create({
   },
 });
 
-//   const { show, movie } = route.params;
-//   const dispatch = useDispatch();
-
-//   const selectedSeats = useSelector((state) => state.showSeat.selectedSeats);
-//   const user = useSelector((state) => state.auth.user);
-//   const userId = user?._id;
-
-//   // Fetch seats
-//   const { data: seatsData, isLoading, refetch } = useGetShowSeatsByShowQuery(
-//     show?._id,
-//     { skip: !show?._id }
-//   );
-
-//   const [createPendingBooking] = useCreatePendingBookingMutation();
-//   const [createRazorpayOrder] = useCreateRazorpayOrderMutation();
-
-//   const seatPrice = 150;
-//   const totalPrice = selectedSeats.length * seatPrice;
-
-//   // Load seats into Redux
-//   useEffect(() => {
-//     if (seatsData) {
-//       dispatch(setSeats(seatsData));
-//     }
-//   }, [seatsData]);
-
-//   // ⭐ ADDED: Refresh seats + clear selected seats when screen is focused
-//   useFocusEffect(
-//     React.useCallback(() => {
-//       console.log("🔄 Screen focused → refreshing seats");
-//       refetch();                 // fetch latest seat status
-//       dispatch(clearSelectedSeats());   // reset seat selection
-//       return () => {};
-//     }, [])
-//   );
-
-//   // Clear seats if component unmounts
-//   useEffect(() => {
-//     return () => {
-//       dispatch(clearSelectedSeats());
-//     };
-//   }, []);
-
-//   const handleSeatPress = (seat) => {
-//     if (["BOOKED", "BLOCKED", "SOLD"].includes(seat.status)) return;
-//     dispatch(toggleSelectedSeat(seat._id));
-//   };
-
-//   const handleBookSeats = async () => {
-//     if (!userId) {
-//       return Alert.alert("Not Logged In", "Please login to continue.");
-//     }
-//     if (selectedSeats.length === 0) {
-//       return Alert.alert("Select Seats", "Choose at least one seat.");
-//     }
-
-//     try {
-//       // 1️⃣ Create pending booking
-//       const bookingRes = await createPendingBooking({
-//         userId,
-//         showId: show._id,
-//         showSeatIds: selectedSeats,
-//       }).unwrap();
-
-//       const bookingId = bookingRes.data._id;
-//       dispatch(setCurrentBooking(bookingRes.data));
-
-//       // 2️⃣ Create Razorpay order
-//       const orderRes = await createRazorpayOrder({ bookingId }).unwrap();
-//       const { order, paymentId } = orderRes;
-
-//       // 3️⃣ Navigate to Razorpay checkout
-//       navigation.navigate("RazorpayCheckoutScreen", {
-//         orderId: order.id,
-//         amount: order.amount,
-//         user,
-//         paymentId,
-//         bookingId,
-//       });
-//     } catch (err) {
-//       console.log("Booking error:", err);
-//       Alert.alert("Error", err.message);
-//     }
-//   };
-
-//   return (
-//     <SafeAreaView style={styles.container}>
-//       <View style={styles.header}>
-//         <TouchableOpacity onPress={() => navigation.goBack()}>
-//           <Text style={styles.backText}>‹</Text>
-//         </TouchableOpacity>
-//         <Text style={styles.headerTitle}>{movie.movieName}</Text>
-//         <Text>{selectedSeats.length} Seat(s)</Text>
-//       </View>
-
-//       {isLoading ? (
-//         <ActivityIndicator size="large" />
-//       ) : (
-//         <ScrollView style={styles.seatsContainer}>
-//           <View style={styles.seatsGrid}>
-//             {seatsData?.map((seat) => (
-//               <TouchableOpacity
-//                 key={seat._id}
-//                 style={[
-//                   styles.seat,
-//                   {
-//                     backgroundColor: selectedSeats.includes(seat._id)
-//                       ? "green"
-//                       : seat.status === "BOOKED"
-//                       ? "#ccc"
-//                       : "#fff",
-//                   },
-//                 ]}
-//                 onPress={() => handleSeatPress(seat)}
-//               >
-//                 <Text>{seat.seatNumber}</Text>
-//               </TouchableOpacity>
-//             ))}
-//           </View>
-//         </ScrollView>
-//       )}
-
-//       <View style={styles.bottomBar}>
-//         <Text style={styles.totalPrice}>₹ {totalPrice}</Text>
-//         <TouchableOpacity
-//           style={styles.payButton}
-//           onPress={handleBookSeats}
-//           disabled={selectedSeats.length === 0}
-//         >
-//           <Text style={styles.payButtonText}>Pay ₹ {totalPrice}</Text>
-//         </TouchableOpacity>
-//       </View>
-//     </SafeAreaView>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: "#fff",
-//     alignItems: "center",
-//     justifyContent: "flex-start",
-//   },
-//   inputContainer: {
-//     flex: 1,
-//     gap: 20,
-//     justifyContent: "center",
-//     alignItems: "center",
-//   },
-//   input: {
-//     borderWidth: 1,
-//     borderColor: "black",
-//     borderRadius: 8,
-//     padding: 10,
-//     width: 300,
-//   },
-//   button: {
-//     height: 50,
-//     width: 100,
-//     backgroundColor: "#ff0a54",
-//     justifyContent: "center",
-//     alignItems: "center",
-//     borderRadius: 10,
-//   },
-//    registerText: {
-//     marginTop: 15,
-//     textAlign: "center",
-//     color: "#444",
-//   },
-// });

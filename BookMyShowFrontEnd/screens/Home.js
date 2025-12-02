@@ -112,7 +112,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* Recommended Movies Section */}
         <View style={styles.recommendHeader}>
-          <Text style={styles.recommendTitle}>Recommended Movies</Text>
+          <Text style={styles.recommendTitle}>Latest Released Movies</Text>
           <TouchableOpacity>
             <Text style={styles.seeAll}>See All ›</Text>
           </TouchableOpacity>
