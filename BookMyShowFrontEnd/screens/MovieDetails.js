@@ -101,7 +101,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
         }} style={styles.iconBtn}>
           <Text style={styles.iconText}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{movie.movieName}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{movie.movieName || movie.name}</Text>
         <TouchableOpacity onPress={() => {
             navigation.goBack()
         }} style={styles.iconBtn}>

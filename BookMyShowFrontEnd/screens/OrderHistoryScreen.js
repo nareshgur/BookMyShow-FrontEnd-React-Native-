@@ -7,17 +7,64 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useGetUserBookingsQuery } from "../redux/api/bookApi";
+import { clearCredentials } from "../redux/slices/authSlice";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Helper function to check for token expiration
+const isTokenExpired = (errorMessage) => {
+  if (!errorMessage) return false;
+  const message = typeof errorMessage === 'string' ? errorMessage : errorMessage.toString();
+  return message.toLowerCase().includes("token expired");
+};
+
+// Helper function to handle token expiration
+const handleTokenExpiration = (dispatch, navigation) => {
+  dispatch(clearCredentials());
+  AsyncStorage.removeItem("token");
+  AsyncStorage.removeItem("user");
+  navigation.reset({
+    index: 0,
+    routes: [{ name: "Login" }],
+  });
+};
 
 export default function OrderHistoryScreen({ navigation }) {
+  const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
   const userId = user?._id;
 
-  const { data, isLoading, isFetching } = useGetUserBookingsQuery(userId, {
+  const { data, isLoading, isFetching, error, isError } = useGetUserBookingsQuery(userId, {
     skip: !userId,
   });
+
+  // ✅ Handle token expiration from query error
+  React.useEffect(() => {
+    if (isError && error) {
+      console.log("Query error:", error);
+      const errorMessage = error?.data?.message || error?.message || '';
+      
+      if (isTokenExpired(errorMessage)) {
+        console.log("❌ Token expired detected in order history");
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please login again.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                handleTokenExpiration(dispatch, navigation);
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      }
+    }
+  }, [isError, error]);
 
   console.log("User bookings data:", data);
   const bookings = data?.data || [];

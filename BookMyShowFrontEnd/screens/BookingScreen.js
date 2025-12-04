@@ -34,6 +34,25 @@ import {
 } from "../redux/api/paymentApi";
 
 import { setCurrentBooking } from "../redux/slices/bookSlice";
+import { clearCredentials } from "../redux/slices/authSlice";
+
+// Helper function to check for token expiration in error message
+const isTokenExpired = (errorMessage) => {
+  if (!errorMessage) return false;
+  const message = typeof errorMessage === 'string' ? errorMessage : errorMessage.toString();
+  return message.toLowerCase().includes("token expired");
+};
+
+// Helper function to handle token expiration
+const handleTokenExpiration = (dispatch, navigation) => {
+  dispatch(clearCredentials());
+  AsyncStorage.removeItem("token");
+  AsyncStorage.removeItem("user");
+  navigation.reset({
+    index: 0,
+    routes: [{ name: "Login" }],
+  });
+};
 
 export default function BookingScreen({ route, navigation }) {
   const { show, movie } = route.params;
@@ -43,10 +62,39 @@ export default function BookingScreen({ route, navigation }) {
   const user = useSelector((state) => state.auth.user);
   const userId = user?._id;
 
-  const { data: seatsData, isLoading } = useGetShowSeatsByShowQuery(
+  const { data: seatsData,error, isError, isLoading } = useGetShowSeatsByShowQuery(
     show?._id,
     { skip: !show?._id }
   );
+
+  // ✅ Handle token expiration from query error
+  useEffect(() => {
+    if (isError && error) {
+      console.log("Query error:", error);
+      const errorMessage = error?.data?.message || error?.message || '';
+      
+      if (isTokenExpired(errorMessage)) {
+        console.log("❌ Token expired detected in query");
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please login again.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                handleTokenExpiration(dispatch, navigation);
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      }
+    }
+  }, [isError, error]);
+
+  
+
+  console.log("Seats data received in Booking Screen:", seatsData);
 
   const [blockSeats] = useBlockSeatsMutation();
   const [createPendingBooking] = useCreatePendingBookingMutation();
@@ -54,7 +102,7 @@ export default function BookingScreen({ route, navigation }) {
   const [createRazorpayOrder] = useCreateRazorpayOrderMutation();
   const [verifyPayment] = useVerifyPaymentMutation();
 
-  const seatPrice = 150;
+  const seatPrice = 250;
   const totalPrice = selectedSeats.length * seatPrice;
 
   useEffect(() => {
@@ -146,7 +194,27 @@ const groupedRows = seatsData ? groupSeatsByRow(seatsData) : {};
       });
     } catch (err) {
       console.log("Booking error:", err);
-      Alert.alert("Error", err.message);
+      const errorMessage = err?.data?.message || err?.message || err.toString();
+      
+      // ✅ Check for token expiration
+      if (isTokenExpired(errorMessage)) {
+        console.log("❌ Token expired during booking");
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please login again.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                handleTokenExpiration(dispatch, navigation);
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      } else {
+        Alert.alert("Booking Error", errorMessage || "An error occurred. Please try again.");
+      }
     }
   };
 

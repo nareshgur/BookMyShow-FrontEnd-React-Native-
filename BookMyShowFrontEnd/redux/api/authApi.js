@@ -1,6 +1,6 @@
 // src/features/auth/authApi.js
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { dynamicBaseQuery } from "../../utils/dynamicBaseQuery";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // base url of your backend
 
@@ -9,10 +9,21 @@ export const authApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: "http://10.90.13.242:3000/api/",
     // attach token from state to each request (prepareHeaders receives getState)
-    prepareHeaders: (headers, { getState }) => {
-      const token = getState().auth?.token;
+    prepareHeaders: async (headers, { getState }) => {
+      const state = getState();
+      let token = state.auth?.token;
+      
+      // If token is not in Redux, try AsyncStorage
+      if (!token) {
+        try {
+          token = await AsyncStorage.getItem("token");
+        } catch (err) {
+          console.error("Error reading token from AsyncStorage:", err);
+        }
+      }
+      
       if (token) {
-        headers.set("Authorization", `Bearer ${token}`);
+        headers.set("x-auth-token", token);
       }
       return headers;
     },

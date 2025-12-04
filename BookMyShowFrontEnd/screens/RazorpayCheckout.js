@@ -2,8 +2,31 @@
 
 import React from "react";
 import { WebView } from "react-native-webview";
+import { Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useDispatch } from "react-redux";
+import { clearCredentials } from "../redux/slices/authSlice";
+
+// Helper function to check for token expiration
+const isTokenExpired = (errorMessage) => {
+  if (!errorMessage) return false;
+  const message = typeof errorMessage === 'string' ? errorMessage : errorMessage.toString();
+  return message.toLowerCase().includes("token expired");
+};
+
+// Helper function to handle token expiration
+const handleTokenExpiration = (dispatch, navigation) => {
+  dispatch(clearCredentials());
+  AsyncStorage.removeItem("token");
+  AsyncStorage.removeItem("user");
+  navigation.reset({
+    index: 0,
+    routes: [{ name: "Login" }],
+  });
+};
 
 export default function RazorpayCheckoutScreen({ route, navigation }) {
+  const dispatch = useDispatch();
   const { orderId, amount, user, bookingId, paymentId, showId } = route.params;
 
   console.log("The data we received inside the checout screen:");
@@ -74,25 +97,43 @@ export default function RazorpayCheckoutScreen({ route, navigation }) {
       } else {
         // Payment dismissed / failed by user -> notify backend to cancel & release seats
         try {
-          // If you use auth token add it here:
+          // Get token from AsyncStorage
           const token = await AsyncStorage.getItem("token");
 
-          await fetch(`http://10.90.13.242:3000/api/Payment/cancel`, {
+          const response = await fetch(`http://10.90.13.242:3000/api/Payment/cancel`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              ...(token ? { "x-auth-token": token } : {}),
             },
             body: JSON.stringify({ bookingId, paymentDbId: paymentId }),
           });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ HTTP Error:", response.status, errorText);
+            
+            // ✅ Check for token expiration
+            if (isTokenExpired(errorText)) {
+              handleTokenExpiration(dispatch, navigation);
+              return;
+            }
+          }
 
           // Show message & go back
           Alert.alert("Payment Cancelled", "Payment was cancelled. Seats have been released.");
           navigation.goBack();
         } catch (err) {
           console.error("Error cancelling payment:", err);
-          Alert.alert("Cancelled", "Payment cancelled. Please try again.");
-          navigation.goBack();
+          const errorMessage = err?.message || err.toString();
+          
+          // ✅ Check for token expiration
+          if (isTokenExpired(errorMessage)) {
+            handleTokenExpiration(dispatch, navigation);
+          } else {
+            Alert.alert("Cancelled", "Payment cancelled. Please try again.");
+            navigation.goBack();
+          }
         }
       }
     } catch (err) {

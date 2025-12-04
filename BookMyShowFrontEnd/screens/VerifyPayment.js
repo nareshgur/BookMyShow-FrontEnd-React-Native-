@@ -6,13 +6,34 @@ import {
   Animated,
   StyleSheet,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { clearSelectedSeats } from "../redux/slices/showSeatSlice";
+import { clearCredentials } from "../redux/slices/authSlice";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useVerifyPaymentMutation } from "../redux/api/paymentApi";
 import { showSeatApi } from "../redux/api/showSeatApi"; // ✅ Import for refetch
+
+// Helper function to check for token expiration
+const isTokenExpired = (errorMessage) => {
+  if (!errorMessage) return false;
+  const message = typeof errorMessage === 'string' ? errorMessage : errorMessage.toString();
+  return message.toLowerCase().includes("token expired");
+};
+
+// Helper function to handle token expiration
+const handleTokenExpiration = (dispatch, navigation) => {
+  dispatch(clearCredentials());
+  AsyncStorage.removeItem("token");
+  AsyncStorage.removeItem("user");
+  navigation.reset({
+    index: 0,
+    routes: [{ name: "Login" }],
+  });
+};
 
 export default function VerifyPayment({ route, navigation }) {
   const { bookingId, paymentId, razorpay_order_id, razorpay_payment_id, razorpay_signature, showId } =
@@ -20,10 +41,28 @@ export default function VerifyPayment({ route, navigation }) {
 
   const [verifyPayment] = useVerifyPaymentMutation();
   const dispatch = useDispatch();
+  const token = useSelector((state) => state.auth?.token); // Get token from Redux
 
   const [status, setStatus] = useState("VERIFYING"); // VERIFYING | SUCCESS | FAILED
+  const [storedToken, setStoredToken] = useState(token);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
+
+  // Load token from AsyncStorage if not in Redux
+  useEffect(() => {
+    const loadToken = async () => {
+      if (!token) {
+        try {
+          const asyncToken = await AsyncStorage.getItem("token");
+          setStoredToken(asyncToken);
+          console.log("Token loaded from AsyncStorage:", asyncToken ? "✅ Found" : "❌ Not found");
+        } catch (err) {
+          console.error("Error loading token:", err);
+        }
+      }
+    };
+    loadToken();
+  }, [token]);
 
   // RUN PAYMENT VERIFICATION
   useEffect(() => {
@@ -43,8 +82,29 @@ export default function VerifyPayment({ route, navigation }) {
       setStatus("SUCCESS");
       animate();
     } catch (err) {
-      setStatus("FAILED");
-      animate();
+      console.log("Payment verification error:", err);
+      const errorMessage = err?.data?.message || err?.message || err.toString();
+      
+      // ✅ Check for token expiration
+      if (isTokenExpired(errorMessage)) {
+        console.log("❌ Token expired during payment verification");
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please login again.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                handleTokenExpiration(dispatch, navigation);
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      } else {
+        setStatus("FAILED");
+        animate();
+      }
     }
   }
 
@@ -66,13 +126,44 @@ export default function VerifyPayment({ route, navigation }) {
             dispatch(showSeatApi.util.invalidateTags([{ type: "ShowSeats", id: showId }]));
           }
 
-          const response = await fetch(`http://10.90.13.242:3000/api/Booking/booking/${bookingId}`);
-          console.log("Data fetched for booking navigation:", response);
+          // Use stored token (from Redux or AsyncStorage)
+          const authToken = storedToken || token;
+          console.log("🔍 Fetching booking with token:", authToken ? "✅ Token present" : "❌ No token");
+
+          // Fetch booking with token in x-auth-token header
+          const response = await fetch(`http://10.90.13.242:3000/api/Booking/booking/${bookingId}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "x-auth-token": authToken || "",
+            },
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ HTTP Error:", response.status, errorText);
+            
+            // ✅ Check for token expiration in error response
+            if (isTokenExpired(errorText)) {
+              handleTokenExpiration(dispatch, navigation);
+              return;
+            }
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+
           const booking = await response.json();
+          console.log("✅ Data fetched for booking navigation:", booking);
+          
           const timer = setTimeout(() => navigation.replace("TicketScreen", { booking: booking.data }), 1800);
           return () => clearTimeout(timer);
         } catch (error) {
-          console.error("Failed to fetch booking:", error);
+          console.error("❌ Failed to fetch booking:", error);
+          const errorMessage = error?.message || error.toString();
+          
+          // ✅ Check for token expiration
+          if (isTokenExpired(errorMessage)) {
+            handleTokenExpiration(dispatch, navigation);
+          }
         }
       }
       fetchBookingAndNavigate();  
@@ -109,7 +200,7 @@ export default function VerifyPayment({ route, navigation }) {
             <Text style={styles.failIcon}>✖</Text>
           </View>
           <Text style={styles.failTitle}>Session Timeout</Text>
-          <Text style={styles.subtitle}>Your seats were automatically released.</Text>
+          <Text style={styles.subtitle}>Your seats were automatically released if any amount deducted will be refunded.</Text>
 
           <TouchableOpacity
             style={styles.retryBtn}

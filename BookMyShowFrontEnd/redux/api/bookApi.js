@@ -1,9 +1,24 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { dynamicBaseQuery } from "../../utils/dynamicBaseQuery";
 
+// Enhanced baseQuery with error handling
+const baseQueryWithErrorHandling = async (args, api, extraOptions) => {
+  const result = await dynamicBaseQuery(args, api, extraOptions);
+  
+  // ✅ Check for token expiration in error response
+  if (result.error) {
+    const errorMessage = result.error?.data?.message || result.error?.message || '';
+    if (errorMessage.toLowerCase().includes("token expired")) {
+      console.error("❌ Token expired - API error detected");
+    }
+  }
+  
+  return result;
+};
+
 export const bookApi = createApi({
   reducerPath: "bookApi",
-  baseQuery: dynamicBaseQuery,
+  baseQuery: baseQueryWithErrorHandling,
   tagTypes: ["Bookings"], // ✅ Add tag type
   endpoints: (builder) => ({
     createPendingBooking: builder.mutation({
